@@ -1,5 +1,5 @@
 const express = require('express');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core'); // <--- Fíjate que ahora dice @distube/ytdl-core
 const yts = require('yt-search');
 const app = express();
 
@@ -28,3 +28,4 @@ app.get('/ver', (req, res) => {
 
 
 app.listen(3000, () => console.log("¡Servidor listo en el puerto 3000!"));
+
