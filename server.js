@@ -1,31 +1,53 @@
 const express = require('express');
-const ytdl = require('@distube/ytdl-core'); // <--- Fíjate que ahora dice @distube/ytdl-core
+const ytdl = require('@distube/ytdl-core'); 
 const yts = require('yt-search');
 const app = express();
 
-// Para que el servidor pueda leer archivos de la carpeta "public"
 app.use(express.static('public'));
 
-// 1. RUTA PARA BUSCAR VIDEOS
 app.get('/buscar', async (req, res) => {
-    const query = req.query.q;
-    const resultado = await yts(query);
-    // Enviamos solo los primeros 10 resultados
-    res.json(resultado.videos.slice(0, 10));
+    try {
+        const query = req.query.q;
+        const resultado = await yts(query);
+        res.json(resultado.videos.slice(0, 10));
+    } catch (e) {
+        res.status(500).json({ error: "Error en búsqueda" });
+    }
 });
 
-// 2. RUTA TÚNEL (Aquí es donde ocurre la magia)
-app.get('/ver', (req, res) => {
+app.get('/ver', async (req, res) => {
     const id = req.query.id;
     const url = `https://www.youtube.com/watch?v=${id}`;
 
-    // Le decimos al navegador: "Esto es un video MP4"
-    res.setHeader('Content-Type', 'video/mp4');
+    try {
+        // Configuramos cabeceras para que el navegador sepa que viene un video
+        res.setHeader('Content-Type', 'video/mp4');
 
-    // ytdl-core descarga el video de YT y lo envía (pipe) directamente a tu pantalla
-    ytdl(url, { filter: 'audioandvideo', quality: 'highestvideo' }).pipe(res);
+        // USAMOS FORMATO 18: Es el más compatible para servidores en la nube
+        const stream = ytdl(url, {
+            quality: '18', 
+            agent: ytdl.createAgent(), // Intenta usar cookies internas para evitar bloqueos
+            requestOptions: {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                }
+            }
+        });
+
+        stream.on('error', (err) => {
+            console.error("Error en el stream:", err.message);
+            // Si el error es 403, YouTube nos bloqueó la IP de Render
+        });
+
+        stream.pipe(res);
+
+    } catch (e) {
+        console.error("Error crítico:", e.message);
+        res.status(500).send("Error al conectar con el video");
+    }
 });
 
-
-app.listen(3000, () => console.log("¡Servidor listo en el puerto 3000!"));
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor activo`));
