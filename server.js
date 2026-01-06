@@ -26,4 +26,5 @@ app.get('/ver', (req, res) => {
     ytdl(url, { filter: 'audioandvideo', quality: 'highestvideo' }).pipe(res);
 });
 
-app.listen(3000, () => console.log("¡Servidor listo en el puerto 3011!"));
+
+app.listen(3000, () => console.log("¡Servidor listo en el puerto 3000!"));
