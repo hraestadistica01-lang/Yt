@@ -1,9 +1,12 @@
 const express = require('express');
-const ytdl = require('@distube/ytdl-core'); 
+const ytdl = require('@distube/ytdl-core');
 const yts = require('yt-search');
 const app = express();
 
 app.use(express.static('public'));
+
+// Función para generar un agente que engañe a YouTube
+const agent = ytdl.createAgent(); 
 
 app.get('/buscar', async (req, res) => {
     try {
@@ -20,34 +23,32 @@ app.get('/ver', async (req, res) => {
     const url = `https://www.youtube.com/watch?v=${id}`;
 
     try {
-        // Configuramos cabeceras para que el navegador sepa que viene un video
+        // Obligamos a usar el formato 18 (MP4 360p) que es el menos propenso a errores 429
         res.setHeader('Content-Type', 'video/mp4');
 
-        // USAMOS FORMATO 18: Es el más compatible para servidores en la nube
         const stream = ytdl(url, {
+            agent: agent,
             quality: '18', 
-            agent: ytdl.createAgent(), // Intenta usar cookies internas para evitar bloqueos
-            requestOptions: {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                }
+            app: {
+                name: 'com.google.android.youtube',
+                version: '17.31.35',
+                client: 'ANDROID'
             }
         });
 
         stream.on('error', (err) => {
-            console.error("Error en el stream:", err.message);
-            // Si el error es 403, YouTube nos bloqueó la IP de Render
+            console.log("Error en el stream capturado:", err.message);
+            if (!res.headersSent) {
+                res.status(500).send("YouTube nos está limitando (Error 429/403)");
+            }
         });
 
         stream.pipe(res);
 
     } catch (e) {
-        console.error("Error crítico:", e.message);
-        res.status(500).send("Error al conectar con el video");
+        res.status(500).send("Error crítico al obtener el video");
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor activo`));
+app.listen(PORT, () => console.log(`Servidor en marcha`));
